@@ -1,0 +1,18 @@
+[package]
+name = "daence"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.58"
+description = "An implementation of the Daence authenticated encryption with associated data strategy"
+repository = "https://github.com/qm3ster/daence/"
+license = "MIT"
+keywords = ["authentication", "cryptography"]
+
+
+[dependencies]
+chacha20 = "0.9.0"
+generic-array = "0.14.5"
+poly1305 = "0.7.2"
+subtle = "2.4.1"
+typenum = "1.15.0"
+universal-hash = "0.4.1"
