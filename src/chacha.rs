@@ -27,13 +27,13 @@ impl<A: AsRef<[u8]>> ChaChaDaence<A> {
         Self { cha, p1, p2, ad }
     }
 
-    /// Encrypts a message `msg` in place `msg` in place, and writes authentication tago to `tag`.
+    /// Writes authentication tag to `tag` and encrypts the message `msg` in place.
     pub fn encrypt(&self, msg: &mut [u8], tag: &mut [u8; 24]) {
         self.compressauth(msg, tag);
         chacha20::XChaCha20::new(&self.cha, (&*tag).into()).apply_keystream(msg);
     }
 
-    /// Authenticates and decrypts a message `msg` in place using `tag`
+    /// Decrypts and authenticates a message `msg` in place using `tag`
     /// If authentication fails, will zero-out the message instead.
     ///
     /// # Errors
