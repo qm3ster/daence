@@ -1,10 +1,13 @@
 # Daence
 
 [![Crates.io][crates-badge]][crates-url]
+[![Docs.rs][docs-badge]][docs-url]
 [![MIT licensed][mit-badge]][mit-url]
 
 [crates-badge]: https://img.shields.io/crates/v/daence.svg
 [crates-url]: https://crates.io/crates/daence
+[docs-badge]: https://docs.rs/daence/badge.svg
+[docs-url]: https://docs.rs/daence/
 [mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
 [mit-url]: https://github.com/qm3ster/daence/blob/master/LICENSE
 
