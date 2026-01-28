@@ -142,7 +142,7 @@ mod test {
             assert!(hex.len() % 2 == 0);
             let mut vec = Vec::with_capacity(hex.len() / 2);
             for i in 0..hex.len() / 2 {
-                vec.push(u8::from_str_radix(&hex[i..i + 2], 16).unwrap());
+                vec.push(u8::from_str_radix(&hex[i * 2..i * 2 + 2], 16).unwrap());
             }
             vec
         }
@@ -165,16 +165,120 @@ mod test {
             assert_eq!(cyphertext.len(), msg.len() + 24);
             assert!(lines.next().unwrap_or_default().is_empty());
             let (tag, cyphertext) = cyphertext.split_at(24);
-            // let tag = tag.try_into().unwrap();
+            let tag: &[u8; 24] = tag.try_into().unwrap();
             let mut m: Vec<u8> = msg.clone();
             let mut t = [0u8; 24];
 
             ChaChaDaence::new(&key, &ad).encrypt(&mut m, &mut t);
-            // assert_eq!(m, cyphertext);
-            // assert_eq!(t, tag);
+            assert_eq!(m, cyphertext, "ciphertext mismatch at mlen={i}");
+            assert_eq!(t, *tag, "tag mismatch at mlen={i}");
 
             ChaChaDaence::new(&key, &ad).decrypt(&mut m, &t).unwrap();
-            // assert_eq!(m, msg);
+            assert_eq!(m, msg, "roundtrip mismatch at mlen={i}");
         }
+    }
+
+    fn test_key() -> [u8; 64] {
+        let mut key = [0u8; 64];
+        for (i, b) in key.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        key
+    }
+
+    #[test]
+    fn decrypt_fails_on_corrupted_tag() {
+        let key = test_key();
+        let daence = ChaChaDaence::new(&key, b"some ad");
+        let mut msg = *b"hello world";
+        let mut tag = [0u8; 24];
+        daence.encrypt(&mut msg, &mut tag);
+
+        tag[0] ^= 1;
+        let mut ct = msg;
+        let result = daence.decrypt(&mut ct, &tag);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decrypt_fails_on_corrupted_ciphertext() {
+        let key = test_key();
+        let daence = ChaChaDaence::new(&key, b"some ad");
+        let mut msg = *b"hello world";
+        let mut tag = [0u8; 24];
+        daence.encrypt(&mut msg, &mut tag);
+
+        msg[0] ^= 1;
+        let result = daence.decrypt(&mut msg, &tag);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn message_zeroed_on_auth_failure() {
+        let key = test_key();
+        let daence = ChaChaDaence::new(&key, b"some ad");
+        let mut msg = *b"secret message!!";
+        let mut tag = [0u8; 24];
+        daence.encrypt(&mut msg, &mut tag);
+
+        tag[0] ^= 1;
+        let _ = daence.decrypt(&mut msg, &tag);
+        assert_eq!(msg, [0u8; 16], "message buffer should be zeroed after auth failure");
+    }
+
+    #[test]
+    fn empty_additional_data() {
+        let key = test_key();
+        let daence = ChaChaDaence::new(&key, b"");
+        let original = *b"test message";
+        let mut msg = original;
+        let mut tag = [0u8; 24];
+
+        daence.encrypt(&mut msg, &mut tag);
+        assert_ne!(msg, original);
+
+        daence.decrypt(&mut msg, &tag).unwrap();
+        assert_eq!(msg, original);
+    }
+
+    #[test]
+    fn deterministic_encryption() {
+        let key = test_key();
+        let daence = ChaChaDaence::new(&key, b"ad");
+        let original = *b"deterministic!";
+
+        let mut msg1 = original;
+        let mut tag1 = [0u8; 24];
+        daence.encrypt(&mut msg1, &mut tag1);
+
+        let mut msg2 = original;
+        let mut tag2 = [0u8; 24];
+        daence.encrypt(&mut msg2, &mut tag2);
+
+        assert_eq!(msg1, msg2, "ciphertext should be identical for same inputs");
+        assert_eq!(tag1, tag2, "tag should be identical for same inputs");
+    }
+
+    #[test]
+    fn clone_produces_identical_results() {
+        let key = test_key();
+        let daence = ChaChaDaence::new(&key, b"ad");
+        let cloned = daence.clone();
+        let original = *b"clone me";
+
+        let mut msg1 = original;
+        let mut tag1 = [0u8; 24];
+        daence.encrypt(&mut msg1, &mut tag1);
+
+        let mut msg2 = original;
+        let mut tag2 = [0u8; 24];
+        cloned.encrypt(&mut msg2, &mut tag2);
+
+        assert_eq!(msg1, msg2);
+        assert_eq!(tag1, tag2);
+
+        // Cross-instance decrypt
+        cloned.decrypt(&mut msg1, &tag1).unwrap();
+        assert_eq!(msg1, original);
     }
 }
